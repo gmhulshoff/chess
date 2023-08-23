@@ -12,9 +12,9 @@ function drawBoard() {
   append(document.body, create('div', {
     innerText: pos, 
     contenteditable: true,
-	id: 'fen',
-	oninput: 'fenChanging(event)',
-	onblur: 'fenChanged(event)'
+    id: 'fen',
+    oninput: 'fenChanging(event)',
+    onblur: 'fenChanged(event)'
   }))
   var board = create('div', {class: 'board'})
   append(document.body, board)
