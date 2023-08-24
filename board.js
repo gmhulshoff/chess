@@ -3,7 +3,7 @@ const state = {}
 
 function drawBoard(position = startPosition) {
   clearAll()
-  addFenInput()
+  addFenInput(position)
   addBoard(position)
   addSparePieces()
 }
@@ -114,13 +114,9 @@ function handleEnd(ev) {
   var square = state.from.parentElement.dataset.square
   var toSquare = dropSquare.dataset.square
   if (square == toSquare) return;
-
   removeAllChildren(dropSquare)
-  var clone = withTouchEvents(state.from.cloneNode())
-  clone.removeAttribute('id')
-  dropSquare.appendChild(clone)
-
-  movePiece(clone.dataset.piece, square, toSquare)
+  movePieceOnBoard(state.from, dropSquare, withTouchEvents(state.from.cloneNode()))
+  movePieceInFen(state.from.dataset.piece, square, toSquare)
   if (state.square) removeAllChildren(state.square)
 }
 function handleCancel(ev) {}
@@ -140,16 +136,13 @@ function drop(ev) {
 	: ev.target
   var data = ev.dataTransfer.getData('id')
   var spare = document.getElementById(data)
-  if (dropTarget.dataset.square == spare.parentElement.dataset.square)
-    return
-  removeAllChildren(dropTarget)
-  var clone = spare.cloneNode()
-  clone.removeAttribute('id')
-  dropTarget.appendChild(clone)
-  var piece = clone.dataset.piece
   var square = dropTarget.dataset.square
   var fromSquare = spare.parentElement.dataset.square
-  movePiece(piece, fromSquare, square)
+  if (square == fromSquare) return
+  removeAllChildren(dropTarget)
+  movePieceOnBoard(spare, dropTarget)
+  var piece = spare.dataset.piece
+  movePieceInFen(piece, fromSquare, square)
   if (fromSquare) removeAllChildren(spare.parentElement)
 }
 function allowDrop(ev) { ev.preventDefault() }
@@ -162,14 +155,14 @@ function withDrop(el) {
 // ----------------------------------
 
 // --------------- fen -----------
-function movePiece(piece, fromSquare, square) {
+function movePieceInFen(piece, fromSquare, square) {
   if (fromSquare) updateFen(fromSquare, '  ')
   updateFen(square, piece)
 }
-function addFenInput() {
+function addFenInput(position) {
   append(document.body, create('div', withContentEditable({
 	style: 'font-family: monospace;font-size: 24px;',
-    innerText: startPosition, 
+    innerText: position, 
     id: 'fen'
   })))
 }
@@ -208,6 +201,11 @@ function compressSpaces(r, n = 8) {
   return compressSpaces(r.replaceAll(' '.repeat(n), `${n}`), n - 1)
 }
 // --------------------------------
+
+function movePieceOnBoard(src, dest, clone = src.cloneNode()) {
+  clone.removeAttribute('id')
+  dest.appendChild(clone)
+}
 
 function create(tag, attributes = {}) { 
   var element = document.createElement(tag)
