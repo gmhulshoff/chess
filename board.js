@@ -1,4 +1,5 @@
 const startPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
+const state = {}
 
 function drawBoard(position = startPosition) {
   clearAll()
@@ -21,19 +22,23 @@ function addBoard(position) {
 }
 
 function addSparePieces() {
-  drawSparePieces(append(document.body, create('div', {style: `display: flex;`})), 'b')
-  drawSparePieces(append(document.body, create('div', {style: `display: flex;`})), 'w')
+  drawSparePieces(append(document.body, create('div', {
+    style: `display: flex;`
+  })), 'b')
+  drawSparePieces(append(document.body, create('div', {
+    style: `display: flex;`
+  })), 'w')
 }
 
 function drawSparePieces(div, color) {
   Array
     .from('KQRBNP')
-	.forEach(pc => append(div, create('img', withDraggable({
+	.forEach(pc => append(div, withTouchEvents(create('img', withDraggable({
       src:`./fen/${color}${pc}.png`, 
       'data-piece':`${color}${pc}`, 
       class: 'piece spare',
 	  id: `${color}${pc}`
-    }))))
+    })))))
 }
 
 // ------------------ Drawboard ------------------
@@ -63,12 +68,12 @@ function drawPiece(square, piece) {
   if (piece == ' ') return
   var pieceUpper = piece.toUpperCase()
   var pc = `${pieceUpper == piece ? 'w' : 'b'}${pieceUpper}`
-  var img = create('img', withDraggable({
+  var img = withTouchEvents(create('img', withDraggable({
     alt:piece, 
     src: `./fen/${pc}.png`,
     class: 'piece', 
     'data-piece': pc
-  }))
+  })))
   append(square, img)
 }
 
@@ -83,19 +88,38 @@ function addNotation(square, cls, text) {
 
 
 // ----------- touch events ----------
-function addTouchEvents(from) {
-  return {
-    ...from,
-    ontouchstart: 'handleStart(event)',
-    ontouchend: 'handleEnd(event)',
-    ontouchcancel: 'handleCancel(event)',
-    ontouchleave: 'handleLeave(event)',
-    ontouchmove: 'handleMove(event)'
-  }
+function withTouchEvents(from) {
+  from.addEventListener('touchstart', handleStart, { passive: true} )
+  from.addEventListener('touchend', handleEnd, { passive: true} )
+  from.addEventListener('touchcancel', handleCancel, { passive: true} )
+  from.addEventListener('touchleave', handleLeave, { passive: true} )
+  from.addEventListener('touchmove', handleMove, { passive: true} )
+  return from
 }
 function handleStart(ev) {
+  console.log({handleStart: ev})
+  var square = ev.target.tagName.toLowerCase() == 'img'
+    ? ev.target.parentElement
+	: ev.target
+  state.from = ev.target
+  if (!ev.target.id) state.square = square
 }
 function handleEnd(ev) {
+  console.log({handleEnd: ev})
+  var touch = ev.changedTouches[0]
+  var dropSquare = document.elementFromPoint(touch.clientX, touch.clientY)
+  if (dropSquare.tagName.toLowerCase() == 'img')
+    dropSquare = dropSquare.parentElement
+  removeAllChildren(dropSquare)
+  var clone = withTouchEvents(state.from.cloneNode())
+  clone.removeAttribute('id')
+  dropSquare.appendChild(clone)
+
+  movePiece(
+    clone.dataset.piece, 
+	state.from.parentElement.dataset.square, 
+	dropSquare.dataset.square)
+  if (state.square) removeAllChildren(state.square)
 }
 function handleCancel(ev) {
 }
@@ -121,10 +145,11 @@ function drop(ev) {
   var clone = spare.cloneNode()
   clone.removeAttribute('id')
   dropTarget.appendChild(clone)
-  if (spare.id != 'boardPiece') return updateFen(dropTarget.dataset.square, clone.dataset.piece)
-  updateFen(spare.parentElement.dataset.square, '  ')
-  updateFen(dropTarget.dataset.square, clone.dataset.piece)
-  removeAllChildren(spare.parentElement)
+  var piece = clone.dataset.piece
+  var square = dropTarget.dataset.square
+  var fromSquare = spare.parentElement.dataset.square
+  movePiece(piece, fromSquare, square)
+  if (fromSquare) removeAllChildren(spare.parentElement)
 }
 function allowDrop(ev) { ev.preventDefault() }
 function withDraggable(el) {
@@ -136,6 +161,10 @@ function withDrop(el) {
 // ----------------------------------
 
 // --------------- fen -----------
+function movePiece(piece, fromSquare, square) {
+  if (fromSquare) updateFen(fromSquare, '  ')
+  updateFen(square, piece)
+}
 function addFenInput() {
   append(document.body, create('div', withContentEditable({
 	style: 'font-family: monospace;font-size: 24px;',
