@@ -86,18 +86,19 @@ function addNotation(square, cls, text) {
 }
 // -----------------------------------------------
 
-
 // ----------- touch events ----------
 function withTouchEvents(from) {
-  from.addEventListener('touchstart', handleStart, { passive: true} )
-  from.addEventListener('touchend', handleEnd, { passive: true} )
-  from.addEventListener('touchcancel', handleCancel, { passive: true} )
-  from.addEventListener('touchleave', handleLeave, { passive: true} )
-  from.addEventListener('touchmove', handleMove, { passive: true} )
+  from.setAttribute('style', 'touch-action: none;')
+  const options = { passive: true }
+  from.addEventListener('touchstart', handleStart, options )
+  from.addEventListener('touchend', handleEnd, options )
+  from.addEventListener('touchcancel', handleCancel, options )
+  from.addEventListener('touchleave', handleLeave, options )
+  from.addEventListener('touchmove', handleMove, options )
   return from
 }
 function handleStart(ev) {
-  console.log({handleStart: ev})
+  ev.stopPropagation() 	
   var square = ev.target.tagName.toLowerCase() == 'img'
     ? ev.target.parentElement
 	: ev.target
@@ -105,28 +106,26 @@ function handleStart(ev) {
   if (!ev.target.id) state.square = square
 }
 function handleEnd(ev) {
-  console.log({handleEnd: ev})
+  ev.stopPropagation() 	
   var touch = ev.changedTouches[0]
   var dropSquare = document.elementFromPoint(touch.clientX, touch.clientY)
   if (dropSquare.tagName.toLowerCase() == 'img')
     dropSquare = dropSquare.parentElement
+  var square = state.from.parentElement.dataset.square
+  var toSquare = dropSquare.dataset.square
+  if (square == toSquare) return;
+
   removeAllChildren(dropSquare)
   var clone = withTouchEvents(state.from.cloneNode())
   clone.removeAttribute('id')
   dropSquare.appendChild(clone)
 
-  movePiece(
-    clone.dataset.piece, 
-	state.from.parentElement.dataset.square, 
-	dropSquare.dataset.square)
+  movePiece(clone.dataset.piece, square, toSquare)
   if (state.square) removeAllChildren(state.square)
 }
-function handleCancel(ev) {
-}
-function handleLeave(ev) {
-}
-function handleMove(ev) {
-}
+function handleCancel(ev) {}
+function handleLeave(ev) {}
+function handleMove(ev) {}
 //-----------------------------------
 
 // ----------- drag drop -------------
@@ -139,9 +138,11 @@ function drop(ev) {
   var dropTarget = ev.target.tagName.toLowerCase() == 'img'
     ? ev.target.parentElement
 	: ev.target
-  removeAllChildren(dropTarget)
   var data = ev.dataTransfer.getData('id')
   var spare = document.getElementById(data)
+  if (dropTarget.dataset.square == spare.parentElement.dataset.square)
+    return
+  removeAllChildren(dropTarget)
   var clone = spare.cloneNode()
   clone.removeAttribute('id')
   dropTarget.appendChild(clone)
