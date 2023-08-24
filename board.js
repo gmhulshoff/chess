@@ -1,24 +1,26 @@
 const startPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
 
-function drawBoard() {
+function drawBoard(position = startPosition) {
+  clearAll()
+  addFenInput()
+  addBoard(position)
+  addSparePieces()
+}
+
+function clearAll() {
   document.querySelectorAll('.board').forEach(el => el.remove())
   document.querySelectorAll('.spare').forEach(el => el.remove())
+  document.querySelector('#fen')?.remove()
+}
 
-  var fen = document.querySelector('#fen')
-  var pos = fen?.innerText || startPosition
-  var rows = fromFen(pos)
-  fen?.remove()
-
-  append(document.body, create('div', {
-    innerText: pos, 
-    contenteditable: true,
-    id: 'fen',
-    oninput: 'fenChanging(event)',
-    onblur: 'fenChanged(event)'
-  }))
+function addBoard(position) {
   var board = create('div', {class: 'board'})
   append(document.body, board)
-  rows.forEach((r, i) => drawRow(board, r, 8 - i))
+  fromFen(position)
+    .forEach((r, i) => drawRow(board, r, 8 - i))
+}
+
+function addSparePieces() {
   drawSparePieces(append(document.body, create('div', {style: `display: flex;`})), 'b')
   drawSparePieces(append(document.body, create('div', {style: `display: flex;`})), 'w')
 }
@@ -26,16 +28,15 @@ function drawBoard() {
 function drawSparePieces(div, color) {
   Array
     .from('KQRBNP')
-	.forEach(pc => append(div, create('img', {
+	.forEach(pc => append(div, create('img', withDraggable({
       src:`./fen/${color}${pc}.png`, 
       'data-piece':`${color}${pc}`, 
       class: 'piece spare',
-	  id: `${color}${pc}`,
-      draggable: true, 
-      ondragstart: 'drag(event)'
-    })))
+	  id: `${color}${pc}`
+    }))))
 }
 
+// ------------------ Drawboard ------------------
 function drawRow(board, row, rowIndex) {
   var rowDiv = create('div', {class: 'row'})
   Array.from(row).forEach((c, i) => drawSquare(rowDiv, row, rowIndex, c, i))
@@ -44,15 +45,13 @@ function drawRow(board, row, rowIndex) {
 }
 
 function drawSquare(board, row, rowIndex, c, colIndex, cols = 'abcdefgh', col = cols[colIndex]) {
-  var c1 = colIndex%2 == 0 ? 'white' : 'black'
-  var reverse = {white: 'black', black: 'white'}
-  var color = rowIndex%2 == 0 ? c1 : reverse[c1]
-  var square = create('div', {
+  var color = rowIndex%2 == 0 
+    ? colIndex%2 == 0 ? 'white' : 'black' 
+	: {white: 'black', black: 'white'}[colIndex%2 == 0 ? 'white' : 'black']
+  var square = create('div', withDrop({
     class: `square ${color} square-${col}${rowIndex}`, 
-    'data-square': `${col}${rowIndex}`,
-	ondrop: 'drop(event)',
-	ondragover: 'allowDrop(event)'
-  })
+    'data-square': `${col}${rowIndex}`
+  }))
   if (colIndex == 0) addNotation(square, 'numeric', `${rowIndex}`)
   if (rowIndex == 1) addNotation(square, 'alpha', `${col}`)
   drawPiece(square, c)
@@ -64,14 +63,12 @@ function drawPiece(square, piece) {
   if (piece == ' ') return
   var pieceUpper = piece.toUpperCase()
   var pc = `${pieceUpper == piece ? 'w' : 'b'}${pieceUpper}`
-  var img = create('img', {
+  var img = create('img', withDraggable({
     alt:piece, 
     src: `./fen/${pc}.png`,
     class: 'piece', 
-    'data-piece': pc,
-    draggable: true, 
-    ondragstart: 'drag(event)'
-  })
+    'data-piece': pc
+  }))
   append(square, img)
 }
 
@@ -82,27 +79,42 @@ function addNotation(square, cls, text) {
   })
   append(square, notation)
 }
+// -----------------------------------------------
 
-function create(tag, attributes = {}) { 
-  var element = document.createElement(tag)
-  Object.keys(attributes)
-    .filter(key => key != 'innerText')
-    .forEach(key => element.setAttribute(key, attributes[key]))
-  Object.keys(attributes)
-    .filter(key => key == 'innerText')
-	.forEach(key => element.innerText = attributes[key])
-  return element
+
+// ----------- touch events ----------
+function addTouchEvents(from) {
+  return {
+    ...from,
+    ontouchstart: 'handleStart(event)',
+    ontouchend: 'handleEnd(event)',
+    ontouchcancel: 'handleCancel(event)',
+    ontouchleave: 'handleLeave(event)',
+    ontouchmove: 'handleMove(event)'
+  }
 }
+function handleStart(ev) {
+}
+function handleEnd(ev) {
+}
+function handleCancel(ev) {
+}
+function handleLeave(ev) {
+}
+function handleMove(ev) {
+}
+//-----------------------------------
 
 // ----------- drag drop -------------
 function drag(ev) { 
   if (!ev.target.id) ev.target.id = 'boardPiece'
-  ev.dataTransfer.setData('id', ev.target.id
-  )
+  ev.dataTransfer.setData('id', ev.target.id)
 }
 function drop(ev) {
   ev.preventDefault()
-  var dropTarget = ev.target.tagName.toLowerCase() == 'img' ? ev.target.parentElement : ev.target
+  var dropTarget = ev.target.tagName.toLowerCase() == 'img'
+    ? ev.target.parentElement
+	: ev.target
   removeAllChildren(dropTarget)
   var data = ev.dataTransfer.getData('id')
   var spare = document.getElementById(data)
@@ -115,18 +127,33 @@ function drop(ev) {
   removeAllChildren(spare.parentElement)
 }
 function allowDrop(ev) { ev.preventDefault() }
+function withDraggable(el) {
+  return {...el, draggable: true, ondragstart: 'drag(event)' }
+}
+function withDrop(el) {
+  return {...el, ondrop: 'drop(event)', ondragover: 'allowDrop(event)' }
+}
 // ----------------------------------
 
 // --------------- fen -----------
+function addFenInput() {
+  append(document.body, create('div', withContentEditable({
+	style: 'font-family: monospace;font-size: 24px;',
+    innerText: startPosition, 
+    id: 'fen'
+  })))
+}
+function withContentEditable(el) {
+  return {...el, contenteditable: true, onblur: 'fenChanged(event)' }
+}
 function fenChanged(ev) {
   var src = document.getElementById('fen')
   if (!fenOk(src.innerText)) return src.innerText = startPosition
   drawBoard(src.innerText)
 }
-function fenChanging(ev) { }
 function fenOk(fen) {
-  var rows = fromFen(fen)
-  return rows.reduce((a, c) => a && c.length == 8 && !c.match(/[^rnbqkpRNBQKP ]/), true)
+  return fromFen(fen)
+    .reduce((a, c) => a && c.length == 8 && !c.match(/[^rnbqkpRNBQKP ]/), true)
 }
 function updateFen(square, piece) {
   var fen = document.getElementById('fen')
@@ -139,7 +166,9 @@ function updateFen(square, piece) {
 }
 function fromFen(fen) {
   return fen.split('/')
-    .map(r => Array.from(r).reduce((a, c) => `${a}${isNaN(c) ? c : ' '.repeat(c)}`, ''))
+    .map(r => Array
+	  .from(r)
+	  .reduce((a, c) => `${a}${isNaN(c) ? c : ' '.repeat(c)}`, ''))
 }
 function toFen(rows) {
   return rows.map(r => compressSpaces(r)).join('/')
@@ -149,6 +178,17 @@ function compressSpaces(r, n = 8) {
   return compressSpaces(r.replaceAll(' '.repeat(n), `${n}`), n - 1)
 }
 // --------------------------------
+
+function create(tag, attributes = {}) { 
+  var element = document.createElement(tag)
+  Object.keys(attributes)
+    .filter(key => key != 'innerText')
+    .forEach(key => element.setAttribute(key, attributes[key]))
+  Object.keys(attributes)
+    .filter(key => key == 'innerText')
+	.forEach(key => element.innerText = attributes[key])
+  return element
+}
 
 function append(from, to) { 
   from.appendChild(to)
@@ -162,6 +202,6 @@ function removeAllChildren(from, child = from.lastElementChild) {
 }
 
 function setCharAt(str, index, chr) {
-  if(index > str.length-1) return str;
-  return str.substring(0,index) + chr + str.substring(index+1);
+  if(index > str.length-1) return str
+  return str.substring(0,index) + chr + str.substring(index+1)
 }
