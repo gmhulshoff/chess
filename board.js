@@ -2,11 +2,13 @@ const startPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
 const state = {}
 
 function drawBoard(position = startPosition) {
+  var area = create('div')
+  append(document.body, area)
   clearAll()
-  addFenInput(position)
-  addBoard(position)
-  addSparePieces()
-  addConsole()
+  addFenInput(area, position)
+  addBoard(area, position)
+  addSparePieces(area)
+  addConsole(area)
 }
 
 function clearAll() {
@@ -16,19 +18,21 @@ function clearAll() {
   document.querySelector('#fen')?.remove()
 }
 
-function addBoard(position) {
+function addBoard(area, position) {
   var board = create('div', {class: 'board'})
-  append(document.body, board)
+  append(area, board)
   fromFen(position)
     .forEach((r, i) => drawRow(board, r, 8 - i))
+  return board
 }
 
-function addSparePieces() {
+function addSparePieces(area) {
   const options = {
     style: `display: flex;flex-direction: column`,
   }
-  const div = append(document.body, create('div', {
+  const div = append(area, create('div', {
     style: `display: flex;`,
+	class: 'spare'
   }))
   drawSparePieces(append(div, create('div', options)), 'b')
   drawSparePieces(append(div, create('div', options)), 'w')
@@ -117,7 +121,7 @@ function handleEnd(ev) {
     dropSquare = dropSquare.parentElement
   var square = state.from.parentElement.dataset.square
   var toSquare = dropSquare.dataset.square
-  if (square == toSquare) return;
+  if (square == toSquare || !toSquare) return;
   removeAllChildren(dropSquare)
   movePieceOnBoard(state.from, dropSquare, withTouchEvents(state.from.cloneNode()))
   movePieceInFen(state.from.dataset.piece, square, toSquare)
@@ -129,7 +133,7 @@ function handleMove(ev) {}
 //-----------------------------------
 
 // ----------- drag drop -------------
-function drag(ev) { 
+function drag(ev) { 1
   if (!ev.target.id) ev.target.id = 'boardPiece'
   ev.dataTransfer.setData('id', ev.target.id)
 }
@@ -163,8 +167,8 @@ function movePieceInFen(piece, fromSquare, square) {
   if (fromSquare) updateFen(fromSquare, '  ')
   updateFen(square, piece)
 }
-function addFenInput(position) {
-  append(document.body, create('div', withContentEditable({
+function addFenInput(area, position) {
+  append(area, create('div', withContentEditable({
     style: 'font-family: monospace;font-size: 20px;width: 480px',
     innerText: position, 
     id: 'fen'
@@ -218,9 +222,9 @@ function bestmove(fen, color) {
   stockfish.postMessage("go depth 15")
   stockfish.onmessage = onmessage
 }
-function addConsole() {
+function addConsole(board) {
   var cs = create('div', {id: 'console'})
-  append(document.body, cs)
+  append(board, cs)
 }
 function onmessage(event) {
   console.log(event.data)
@@ -228,10 +232,11 @@ function onmessage(event) {
 function clearConsole() {
   var cs = document.querySelector('#console')
   removeAllChildren(cs)
+  console.log('\n\n\n\n\n\n')
 }
 function log(line) {
   var cs = document.querySelector('#console')
-  append(cs, create('div', {innerText: line}))
+  append(cs, create('pre', {innerText: line}))
 }
 function takeOverConsole() {
   var console = window.console
