@@ -6,11 +6,13 @@ function drawBoard(position = startPosition) {
   addFenInput(position)
   addBoard(position)
   addSparePieces()
+  addConsole()
 }
 
 function clearAll() {
   document.querySelectorAll('.board').forEach(el => el.remove())
   document.querySelectorAll('.spare').forEach(el => el.remove())
+  document.querySelector('#console')?.remove()
   document.querySelector('#fen')?.remove()
 }
 
@@ -22,22 +24,24 @@ function addBoard(position) {
 }
 
 function addSparePieces() {
-  drawSparePieces(append(document.body, create('div', {
-    style: `display: flex;`
-  })), 'b')
-  drawSparePieces(append(document.body, create('div', {
-    style: `display: flex;`
-  })), 'w')
+  const options = {
+    style: `display: flex;flex-direction: column`,
+  }
+  const div = append(document.body, create('div', {
+    style: `display: flex;`,
+  }))
+  drawSparePieces(append(div, create('div', options)), 'b')
+  drawSparePieces(append(div, create('div', options)), 'w')
 }
 
 function drawSparePieces(div, color) {
   Array
     .from('KQRBNP')
-	.forEach(pc => append(div, withTouchEvents(create('img', withDraggable({
+    .forEach(pc => append(div, withTouchEvents(create('img', withDraggable({
       src:`./fen/${color}${pc}.png`, 
       'data-piece':`${color}${pc}`, 
       class: 'piece spare',
-	  id: `${color}${pc}`
+      id: `${color}${pc}`
     })))))
 }
 
@@ -52,7 +56,7 @@ function drawRow(board, row, rowIndex) {
 function drawSquare(board, row, rowIndex, c, colIndex, cols = 'abcdefgh', col = cols[colIndex]) {
   var color = rowIndex%2 == 0 
     ? colIndex%2 == 0 ? 'white' : 'black' 
-	: {white: 'black', black: 'white'}[colIndex%2 == 0 ? 'white' : 'black']
+    : {white: 'black', black: 'white'}[colIndex%2 == 0 ? 'white' : 'black']
   var square = create('div', withDrop({
     class: `square ${color} square-${col}${rowIndex}`, 
     'data-square': `${col}${rowIndex}`
@@ -98,15 +102,15 @@ function withTouchEvents(from) {
   return from
 }
 function handleStart(ev) {
-  ev.stopPropagation() 	
+  ev.stopPropagation()
   var square = ev.target.tagName.toLowerCase() == 'img'
     ? ev.target.parentElement
-	: ev.target
+    : ev.target
   state.from = ev.target
   if (!ev.target.id) state.square = square
 }
 function handleEnd(ev) {
-  ev.stopPropagation() 	
+  ev.stopPropagation()
   var touch = ev.changedTouches[0]
   var dropSquare = document.elementFromPoint(touch.clientX, touch.clientY)
   if (dropSquare.tagName.toLowerCase() == 'img')
@@ -133,7 +137,7 @@ function drop(ev) {
   ev.preventDefault()
   var dropTarget = ev.target.tagName.toLowerCase() == 'img'
     ? ev.target.parentElement
-	: ev.target
+    : ev.target
   var data = ev.dataTransfer.getData('id')
   var spare = document.getElementById(data)
   var square = dropTarget.dataset.square
@@ -161,7 +165,7 @@ function movePieceInFen(piece, fromSquare, square) {
 }
 function addFenInput(position) {
   append(document.body, create('div', withContentEditable({
-	style: 'font-family: monospace;font-size: 24px;',
+    style: 'font-family: monospace;font-size: 20px;width: 480px',
     innerText: position, 
     id: 'fen'
   })))
@@ -190,8 +194,8 @@ function updateFen(square, piece) {
 function fromFen(fen) {
   return fen.split('/')
     .map(r => Array
-	  .from(r)
-	  .reduce((a, c) => `${a}${isNaN(c) ? c : ' '.repeat(c)}`, ''))
+      .from(r)
+      .reduce((a, c) => `${a}${isNaN(c) ? c : ' '.repeat(c)}`, ''))
 }
 function toFen(rows) {
   return rows.map(r => compressSpaces(r)).join('/')
@@ -202,6 +206,49 @@ function compressSpaces(r, n = 8) {
 }
 // --------------------------------
 
+// ------------ Stockfish ---------
+const stockfish = new Worker('fen/stockfish.js')
+setTimeout(() => {
+  takeOverConsole()
+  bestmove(startPosition, 'w')
+},1000)
+function bestmove(fen, color) {
+  clearConsole()
+  stockfish.postMessage(`position fen ${fen} ${color}`)
+  stockfish.postMessage("go depth 15")
+  stockfish.onmessage = onmessage
+}
+function addConsole() {
+  var cs = create('div', {id: 'console'})
+  append(document.body, cs)
+}
+function onmessage(event) {
+  console.log(event.data)
+}
+function clearConsole() {
+  var cs = document.querySelector('#console')
+  removeAllChildren(cs)
+}
+function log(line) {
+  var cs = document.querySelector('#console')
+  append(cs, create('div', {innerText: line}))
+}
+function takeOverConsole() {
+  var console = window.console
+  function intercept(method) {
+    var original = console[method]
+    console[method] = function() {
+      var message = Array.prototype.slice.apply(arguments).join(' ')
+      original.call(console, message)
+	  log(message)
+    }
+  }
+  ['log', 'warn', 'error']
+    .forEach(m => intercept(m))
+}
+
+// --------------------------------
+
 function movePieceOnBoard(src, dest, clone = src.cloneNode()) {
   clone.removeAttribute('id')
   dest.appendChild(clone)
@@ -210,11 +257,11 @@ function movePieceOnBoard(src, dest, clone = src.cloneNode()) {
 function create(tag, attributes = {}) { 
   var element = document.createElement(tag)
   Object.keys(attributes)
-    .filter(key => key != 'innerText')
-    .forEach(key => element.setAttribute(key, attributes[key]))
-  Object.keys(attributes)
-    .filter(key => key == 'innerText')
-	.forEach(key => element.innerText = attributes[key])
+    .forEach(key => {
+      if (key == 'innerText')
+        return element.innerText = attributes[key]
+      element.setAttribute(key, attributes[key])
+    })
   return element
 }
 
