@@ -7,13 +7,13 @@ const state = {
 }
 
 function drawBoard(position = startPosition) {
-  state.area = create('div')
-  append(document.body, state.area)
+  var area = create('div', {style: 'display: flex;flex-wrap: wrap;'})
+  append(document.body, area)
   clearAll()
-  addFenInput(position)
-  addBoard(position)
-  addSparePieces()
-  addConsole()
+  append(area, addFenInput(position))
+  append(area, addBoard(position))
+  append(area, addSparePieces())
+  append(area, addConsole())
   clearConsole()
 }
 
@@ -24,24 +24,17 @@ function clearAll() {
   document.querySelector('#console')?.remove()
 }
 
-function addBoard(position) {
-  var board = create('div', {class: 'board'})
-  append(state.area, board)
-  fromFen(position)
-    .forEach((r, i) => drawRow(board, r, 8 - i))
-  return board
-}
-
 function addSparePieces() {
   const options = {
-    style: `display: flex;flex-direction: column`,
+    style: `display: flex;flex-direction: column;`,
   }
-  const div = append(state.area, create('div', {
+  const div = create('div', {
     style: `display: flex;`,
 	class: 'spare'
-  }))
+  })
   drawSparePieces(append(div, create('div', options)), 'b')
   drawSparePieces(append(div, create('div', options)), 'w')
+  return div
 }
 
 function drawSparePieces(div, color) {
@@ -56,6 +49,13 @@ function drawSparePieces(div, color) {
 }
 
 // ------------------ Drawboard ------------------
+function addBoard(position) {
+  var board = create('div', {class: 'board'})
+  fromFen(position)
+    .forEach((r, i) => drawRow(board, r, 8 - i))
+  return board
+}
+
 function drawRow(board, row, rowIndex) {
   var rowDiv = create('div', {class: 'row'})
   Array.from(row).forEach((c, i) => drawSquare(rowDiv, row, rowIndex, c, i))
@@ -188,9 +188,9 @@ function switchSide() {
   toggle.innerHTML = {b: '&#9818;', w: '&#9812;'}[state.color]
 }
 function addFenInput(position) {
-  var div = append(state.area, create('div', {class: 'fen'}))
+  var div = create('div', {class: 'fen'})
   var fen = append(div, create('div', withContentEditable({
-    style: 'font-family: monospace;font-size: 20px;width: 480px',
+    style: 'font-family: monospace;font-size: 20px;width: 600px;',
     innerText: position, 
     id: 'fen'
   })))
@@ -213,6 +213,7 @@ function addFenInput(position) {
   const playOptions = {style: 'font-size: 25px;', id: state.play}
   append(div, create('button', {innerHTML: '▶️', ...playOptions}))
     .addEventListener('click', () => bestmove(state.color))
+  return div
 }
 function setColor(elm, bc) {
   elm.style.backgroundColor = bc
@@ -266,13 +267,10 @@ function bestmove(color) {
   stockfish.onmessage = onmessage
 }
 function addConsole() {
-  var cs = create('div', {id: 'console'})
-  append(state.area, cs)
+  return create('div', {id: 'console'})
 }
 function onmessage(event) {
   if (!event.data.startsWith('bestmove')) return
-  console.log(event.data)
-  //bestmove d2d4 ponder g8f6
   var lines = event.data.split(' ')
   var fromSquare = document.querySelector('.square-' + lines[1].substr(0,2))
   var toSquare = document.querySelector('.square-' + lines[1].substr(2))
