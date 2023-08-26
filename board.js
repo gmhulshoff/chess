@@ -2,13 +2,23 @@ const startPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
 const state = {select: 'highlight1'}
 
 function drawBoard(position = startPosition) {
-  var area = create('div')
-  append(document.body, area)
+  state.area = create('div')
+  append(document.body, state.area)
   clearAll()
-  addFenInput(area, position)
-  addBoard(area, position)
-  addSparePieces(area)
-  addConsole(area)
+  addFenInput(position)
+  addBoard(position)
+  addSparePieces()
+  addMoveButtons()
+  addConsole()
+}
+
+function addMoveButtons() {
+  var div = append(state.area, create('div', {class: 'buttons'}))
+  var buttonWhite = append(div, create('button', {innerText: 'MW'}))
+  var buttonBlack = append(div, create('button', {innerText: 'MB'}))
+  var fen = document.getElementById('fen').innerText
+  buttonWhite.addEventListener('click', () => bestmove(fen, 'w'))
+  buttonWhite.addEventListener('click', () => bestmove(fen, 'b'))
 }
 
 function clearAll() {
@@ -18,19 +28,19 @@ function clearAll() {
   document.querySelector('#fen')?.remove()
 }
 
-function addBoard(area, position) {
+function addBoard(position) {
   var board = create('div', {class: 'board'})
-  append(area, board)
+  append(state.area, board)
   fromFen(position)
     .forEach((r, i) => drawRow(board, r, 8 - i))
   return board
 }
 
-function addSparePieces(area) {
+function addSparePieces() {
   const options = {
     style: `display: flex;flex-direction: column`,
   }
-  const div = append(area, create('div', {
+  const div = append(state.area, create('div', {
     style: `display: flex;`,
 	class: 'spare'
   }))
@@ -98,11 +108,11 @@ function addNotation(square, cls, text) {
 function withTouchEvents(from) {
   from.setAttribute('style', 'touch-action: none;')
   const options = { passive: true }
-  from.addEventListener('touchstart', handleStart, options )
-  from.addEventListener('touchend', handleEnd, options )
-  from.addEventListener('touchcancel', handleCancel, options )
-  from.addEventListener('touchleave', handleLeave, options )
-  from.addEventListener('touchmove', handleMove, options )
+  from.addEventListener('touchstart', handleStart, options)
+  from.addEventListener('touchend', handleEnd, options)
+  from.addEventListener('touchcancel', handleCancel, options)
+  from.addEventListener('touchleave', handleLeave, options)
+  from.addEventListener('touchmove', handleMove, options)
   return from
 }
 function handleStart(ev) {
@@ -183,8 +193,8 @@ function movePieceInFen(piece, fromSquare, square) {
   if (fromSquare) updateFen(fromSquare, '  ')
   updateFen(square, piece)
 }
-function addFenInput(area, position) {
-  append(area, create('div', withContentEditable({
+function addFenInput(position) {
+  append(state.area, create('div', withContentEditable({
     style: 'font-family: monospace;font-size: 20px;width: 480px',
     innerText: position, 
     id: 'fen'
@@ -228,19 +238,16 @@ function compressSpaces(r, n = 8) {
 
 // ------------ Stockfish ---------
 const stockfish = new Worker('fen/stockfish.js')
-setTimeout(() => {
-  takeOverConsole()
-  //bestmove(startPosition, 'w')
-},1000)
+setTimeout(() => takeOverConsole(), 1000)
 function bestmove(fen, color) {
   clearConsole()
   stockfish.postMessage(`position fen ${fen} ${color}`)
   stockfish.postMessage("go depth 15")
   stockfish.onmessage = onmessage
 }
-function addConsole(board) {
+function addConsole() {
   var cs = create('div', {id: 'console'})
-  append(board, cs)
+  append(state.area, cs)
 }
 function onmessage(event) {
   console.log(event.data)
@@ -291,7 +298,7 @@ function append(from, to) {
   return to
 }
 
-function removeAllChildren(from, child = from.lastElementChild) {
+function removeAllChildren(from, child = from?.lastElementChild) {
   if (!child) return
   from.removeChild(child)
   removeAllChildren(from)
