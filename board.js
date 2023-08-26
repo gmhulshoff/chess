@@ -24,6 +24,7 @@ function addMoveButtons() {
 function clearAll() {
   document.querySelectorAll('.board').forEach(el => el.remove())
   document.querySelectorAll('.spare').forEach(el => el.remove())
+  document.querySelector('.buttons')?.remove()
   document.querySelector('#console')?.remove()
   document.querySelector('#fen')?.remove()
 }
