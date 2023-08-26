@@ -1,5 +1,5 @@
 const startPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
-const state = {select: 'highlight1'}
+const state = {select: 'highlight1', moves: []}
 
 function drawBoard(position = startPosition) {
   state.area = create('div')
@@ -10,15 +10,27 @@ function drawBoard(position = startPosition) {
   addSparePieces()
   addMoveButtons()
   addConsole()
+  clearConsole()
 }
 
 function addMoveButtons() {
   var div = append(state.area, create('div', {class: 'buttons'}))
-  const options = {style: 'width: 50px;height: 50px'}
-  var buttonWhite = append(div, create('button', {innerText: 'MW', ...options}))
-  var buttonBlack = append(div, create('button', {innerText: 'MB', ...options}))
+  const options = {style: 'width: 50px;height: 46px'}
+  var buttonWhite = append(div, create('button', {innerHTML: '<b>WH</b>', ...options}))
+  var buttonBlack = append(div, create('button', {innerHTML: '<b>BL</b>', ...options}))
+  append(div, create('br'))
+  var buttonClear = append(div, create('button', {innerText: 'X', ...options}))
+  var buttonStart = append(div, create('button', {innerText: 'S', ...options}))
   buttonWhite.addEventListener('click', () => bestmove('w'))
   buttonBlack.addEventListener('click', () => bestmove('b'))
+  buttonClear.addEventListener('click', () => {
+    document.getElementById('fen').innerText = '8/8/8/8/8/8/8/8'
+	fenChanged()
+  })
+  buttonStart.addEventListener('click', () => {
+    document.getElementById('fen').innerText = startPosition
+	fenChanged()
+  })
 }
 
 function clearAll() {
@@ -170,7 +182,9 @@ function moveTo(target) {
   if (fromSquare == toSquare || !toSquare) return;
   movePieceOnBoard(state.piece, target, withTouchEvents(state.piece.cloneNode()))
   movePieceInFen(state.piece.dataset.piece, fromSquare, toSquare)
-  if (state.square) removeAllChildren(state.square)
+  if (!state.square) return
+  removeAllChildren(state.square)
+  state.moves.push(`${fromSquare}${toSquare}`)
 }
 function deselectAll() {
   Array.from(document.querySelectorAll(`.${state.select}`))
@@ -244,7 +258,14 @@ function addConsole() {
 function onmessage(event) {
   if (!event.data.startsWith('bestmove')) return
   console.log(event.data)
+  //bestmove d2d4 ponder g8f6
+  var lines = event.data.split(' ')
+  var fromSquare = document.querySelector('.square-' + lines[1].substr(0,2))
+  var toSquare = document.querySelector('.square-' + lines[1].substr(2))
   endWait()
+  state.piece = fromSquare.querySelector('img')
+  state.square = fromSquare
+  moveTo(toSquare)
 }
 function startWait() {
   document.body.style.cursor = 'progress'
@@ -259,7 +280,7 @@ function endWait() {
 function clearConsole() {
   var cs = document.querySelector('#console')
   removeAllChildren(cs)
-  console.log('\n\n\n\n\n\n')
+  console.log('\n')
 }
 function log(line) {
   var cs = document.querySelector('#console')
@@ -294,6 +315,8 @@ function create(tag, attributes = {}) {
       if (key == 'innerText')
         return element.innerText = attributes[key]
       element.setAttribute(key, attributes[key])
+	  if (key == 'innerHTML')
+        element.innerHTML = attributes[key]
     })
   return element
 }
