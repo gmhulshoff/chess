@@ -1,7 +1,7 @@
 const startPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
 const state = {
   select: 'highlight1', 
-  moves: [], 
+  events: [{name:'init', fen: startPosition, color: 'w'}], 
   color: 'w',
   play: 'play1'
 }
@@ -162,12 +162,12 @@ function getSquare(elm) {
 function moveTo(target) {
   var fromSquare = state.square?.dataset.square
   var toSquare = target.dataset.square
-  if (fromSquare == toSquare || !toSquare) return;
+  if (fromSquare == toSquare || !toSquare) return
   movePieceOnBoard(state.piece, target, withTouchEvents(state.piece.cloneNode()))
-  movePieceInFen(state.piece.dataset.piece, fromSquare, toSquare)
+  var fen = movePieceInFen(state.piece.dataset.piece, fromSquare, toSquare)
+  addEvent('moveTo')
   if (!state.square) return
   removeAllChildren(state.square)
-  state.moves.push(`${fromSquare}${toSquare}`)
 }
 function deselectAll() {
   Array.from(document.querySelectorAll(`.${state.select}`))
@@ -178,7 +178,7 @@ function deselectAll() {
 // --------------- fen -----------
 function movePieceInFen(piece, fromSquare, toSquare) {
   if (fromSquare) updateFen(fromSquare, '  ')
-  updateFen(toSquare, piece)
+  return updateFen(toSquare, piece)
 }
 function switchSide() {
   state.color = {w: 'b', b: 'w'}[state.color]
@@ -186,6 +186,7 @@ function switchSide() {
   fen = document.getElementById('fen')
   setColor(fen, {w: 'white', b: 'black'}[state.color])
   toggle.innerHTML = {b: '&#9818;', w: '&#9812;'}[state.color]
+  addEvent('switchSide')
 }
 function addFenInput(position) {
   var div = create('div', {class: 'fen'})
@@ -199,7 +200,8 @@ function addFenInput(position) {
     style: 'font-size: 25px;',
 	id: 'toggle'
   }
-  append(div, create('button', options)).addEventListener('click', () => switchSide())
+  append(div, create('button', options)).addEventListener('click', () => 
+    switchSide())
   append(div, create('button', {innerHTML: '&#10006;', style: 'font-size: 25px;'}))
     .addEventListener('click', () => {
       document.getElementById('fen').innerText = '8/8/8/8/8/8/8/8'
@@ -223,9 +225,10 @@ function withContentEditable(el) {
   return {...el, contenteditable: true, onblur: 'fenChanged(event)' }
 }
 function fenChanged(ev) {
-  var src = document.getElementById('fen')
-  if (!fenOk(src.innerText)) return src.innerText = startPosition
-  drawBoard(src.innerText)
+  var fen = document.getElementById('fen')
+  if (!fenOk(fen.innerText)) return fen.innerText = startPosition
+  drawBoard(fen.innerText)
+  addEvent('fenChanged')
 }
 function fenOk(fen) {
   return fromFen(fen)
@@ -238,7 +241,7 @@ function updateFen(square, piece) {
   var colIndex = square.charCodeAt(0) - 'a'.charCodeAt(0)
   var pc = piece[0] == 'b' ? piece[1].toLowerCase() : piece[1]
   rows[rowIndex] = setCharAt(rows[rowIndex], colIndex, pc)
-  fen.innerText = toFen(rows).replace(/ /g, '1')
+  return fen.innerText = toFen(rows).replace(/ /g, '1')
 }
 function fromFen(fen) {
   return fen.split('/')
@@ -312,6 +315,9 @@ function takeOverConsole() {
 }
 
 // --------------------------------
+function addEvent(name, fen = document.getElementById('fen')) {
+  state.events.push({name, fen: fen.innerText, color: state.color})
+}
 
 function movePieceOnBoard(src, dest, clone = src.cloneNode()) {
   removeAllChildren(dest)
