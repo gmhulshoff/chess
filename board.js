@@ -1,5 +1,5 @@
 const startPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
-const state = {}
+const state = {select: 'highlight1'}
 
 function drawBoard(position = startPosition) {
   var area = create('div')
@@ -114,6 +114,7 @@ function handleStart(ev) {
   if (!ev.target.id) state.square = square
 }
 function handleEnd(ev) {
+  deselectAll()
   ev.stopPropagation()
   var touch = ev.changedTouches[0]
   var dropSquare = document.elementFromPoint(touch.clientX, touch.clientY)
@@ -126,10 +127,25 @@ function handleEnd(ev) {
   movePieceOnBoard(state.from, dropSquare, withTouchEvents(state.from.cloneNode()))
   movePieceInFen(state.from.dataset.piece, square, toSquare)
   if (state.square) removeAllChildren(state.square)
+  delete state.square
 }
 function handleCancel(ev) {}
 function handleLeave(ev) {}
-function handleMove(ev) {}
+function handleMove(ev) {
+  var touch = ev.changedTouches[0]
+  var hover = document.elementFromPoint(touch.clientX, touch.clientY)
+  if (hover.tagName.toLowerCase() == 'img')
+    hover = hover.parentElement
+  if (state.highlight == hover.dataset.square) return
+  deselectAll()
+  hover.classList.add(state.select)
+  state.highlight = hover.dataset.square
+}
+
+function deselectAll() {
+  Array.from(document.querySelectorAll(`.${state.select}`))
+    .forEach(e => e.classList.remove(state.select))
+}
 //-----------------------------------
 
 // ----------- drag drop -------------
@@ -214,7 +230,7 @@ function compressSpaces(r, n = 8) {
 const stockfish = new Worker('fen/stockfish.js')
 setTimeout(() => {
   takeOverConsole()
-  bestmove(startPosition, 'w')
+  //bestmove(startPosition, 'w')
 },1000)
 function bestmove(fen, color) {
   clearConsole()
