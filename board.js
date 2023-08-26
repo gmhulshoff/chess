@@ -14,11 +14,11 @@ function drawBoard(position = startPosition) {
 
 function addMoveButtons() {
   var div = append(state.area, create('div', {class: 'buttons'}))
-  var buttonWhite = append(div, create('button', {innerText: 'MW'}))
-  var buttonBlack = append(div, create('button', {innerText: 'MB'}))
-  var fen = document.getElementById('fen').innerText
-  buttonWhite.addEventListener('click', () => bestmove(fen, 'w'))
-  buttonWhite.addEventListener('click', () => bestmove(fen, 'b'))
+  const options = {style: 'width: 50px;height: 50px'}
+  var buttonWhite = append(div, create('button', {innerText: 'MW', ...options}))
+  var buttonBlack = append(div, create('button', {innerText: 'MB', ...options}))
+  buttonWhite.addEventListener('click', () => bestmove('w'))
+  buttonBlack.addEventListener('click', () => bestmove('b'))
 }
 
 function clearAll() {
@@ -67,7 +67,9 @@ function drawRow(board, row, rowIndex) {
   return rowDiv
 }
 
-function drawSquare(board, row, rowIndex, c, colIndex, cols = 'abcdefgh', col = cols[colIndex]) {
+function drawSquare(board, row, rowIndex, c, colIndex,
+  cols = 'abcdefgh', 
+  col = cols[colIndex]) {
   var color = rowIndex%2 == 0 
     ? colIndex%2 == 0 ? 'white' : 'black' 
     : {white: 'black', black: 'white'}[colIndex%2 == 0 ? 'white' : 'black']
@@ -117,67 +119,39 @@ function withTouchEvents(from) {
 }
 function handleStart(ev) {
   ev.stopPropagation()
-  var square = ev.target.tagName.toLowerCase() == 'img'
-    ? ev.target.parentElement
-    : ev.target
-  state.from = ev.target
-  if (!ev.target.id) state.square = square
+  delete state.piece
+  delete state.square
+  state.piece = ev.target
+  if (!state.piece.id) state.square = state.piece.parentElement
 }
 function handleEnd(ev) {
-  deselectAll()
   ev.stopPropagation()
+  deselectAll()
   var touch = ev.changedTouches[0]
-  var dropSquare = document.elementFromPoint(touch.clientX, touch.clientY)
-  if (dropSquare.tagName.toLowerCase() == 'img')
-    dropSquare = dropSquare.parentElement
-  var square = state.from.parentElement.dataset.square
-  var toSquare = dropSquare.dataset.square
-  if (square == toSquare || !toSquare) return;
-  removeAllChildren(dropSquare)
-  movePieceOnBoard(state.from, dropSquare, withTouchEvents(state.from.cloneNode()))
-  movePieceInFen(state.from.dataset.piece, square, toSquare)
-  if (state.square) removeAllChildren(state.square)
-  delete state.square
+  moveTo(getSquare(document.elementFromPoint(touch.clientX, touch.clientY)))
 }
 function handleCancel(ev) {}
 function handleLeave(ev) {}
 function handleMove(ev) {
   var touch = ev.changedTouches[0]
-  var hover = document.elementFromPoint(touch.clientX, touch.clientY)
-  if (hover.tagName.toLowerCase() == 'img')
-    hover = hover.parentElement
+  var hover = getSquare(document.elementFromPoint(touch.clientX, touch.clientY))
   if (state.highlight == hover.dataset.square) return
   deselectAll()
   hover.classList.add(state.select)
   state.highlight = hover.dataset.square
 }
-
-function deselectAll() {
-  Array.from(document.querySelectorAll(`.${state.select}`))
-    .forEach(e => e.classList.remove(state.select))
-}
 //-----------------------------------
 
 // ----------- drag drop -------------
-function drag(ev) { 1
-  if (!ev.target.id) ev.target.id = 'boardPiece'
-  ev.dataTransfer.setData('id', ev.target.id)
+function drag(ev) {
+  delete state.piece
+  delete state.square
+  state.piece = ev.target
+  if (!state.piece.id) state.square = state.piece.parentElement
 }
 function drop(ev) {
   ev.preventDefault()
-  var dropTarget = ev.target.tagName.toLowerCase() == 'img'
-    ? ev.target.parentElement
-    : ev.target
-  var data = ev.dataTransfer.getData('id')
-  var spare = document.getElementById(data)
-  var square = dropTarget.dataset.square
-  var fromSquare = spare.parentElement.dataset.square
-  if (square == fromSquare) return
-  removeAllChildren(dropTarget)
-  movePieceOnBoard(spare, dropTarget)
-  var piece = spare.dataset.piece
-  movePieceInFen(piece, fromSquare, square)
-  if (fromSquare) removeAllChildren(spare.parentElement)
+  moveTo(getSquare(ev.target))
 }
 function allowDrop(ev) { ev.preventDefault() }
 function withDraggable(el) {
@@ -186,12 +160,27 @@ function withDraggable(el) {
 function withDrop(el) {
   return {...el, ondrop: 'drop(event)', ondragover: 'allowDrop(event)' }
 }
+function getSquare(elm) {
+  return elm.tagName.toLowerCase() == 'img' ? elm.parentElement : elm
+}
+function moveTo(target) {
+  var fromSquare = state.square?.dataset.square
+  var toSquare = target.dataset.square
+  if (fromSquare == toSquare || !toSquare) return;
+  movePieceOnBoard(state.piece, target, withTouchEvents(state.piece.cloneNode()))
+  movePieceInFen(state.piece.dataset.piece, fromSquare, toSquare)
+  if (state.square) removeAllChildren(state.square)
+}
+function deselectAll() {
+  Array.from(document.querySelectorAll(`.${state.select}`))
+    .forEach(e => e.classList.remove(state.select))
+}
 // ----------------------------------
 
 // --------------- fen -----------
-function movePieceInFen(piece, fromSquare, square) {
+function movePieceInFen(piece, fromSquare, toSquare) {
   if (fromSquare) updateFen(fromSquare, '  ')
-  updateFen(square, piece)
+  updateFen(toSquare, piece)
 }
 function addFenInput(position) {
   append(state.area, create('div', withContentEditable({
@@ -239,8 +228,9 @@ function compressSpaces(r, n = 8) {
 // ------------ Stockfish ---------
 const stockfish = new Worker('fen/stockfish.js')
 setTimeout(() => takeOverConsole(), 1000)
-function bestmove(fen, color) {
+function bestmove(color) {
   clearConsole()
+  var fen = document.getElementById('fen').innerText
   stockfish.postMessage(`position fen ${fen} ${color}`)
   stockfish.postMessage("go depth 15")
   stockfish.onmessage = onmessage
@@ -250,6 +240,7 @@ function addConsole() {
   append(state.area, cs)
 }
 function onmessage(event) {
+  if (!event.data.startsWith('bestmove')) return
   console.log(event.data)
 }
 function clearConsole() {
@@ -278,6 +269,7 @@ function takeOverConsole() {
 // --------------------------------
 
 function movePieceOnBoard(src, dest, clone = src.cloneNode()) {
+  removeAllChildren(dest)
   clone.removeAttribute('id')
   dest.appendChild(clone)
 }
