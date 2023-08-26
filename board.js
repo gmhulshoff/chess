@@ -230,6 +230,7 @@ function compressSpaces(r, n = 8) {
 const stockfish = new Worker('fen/stockfish.js')
 setTimeout(() => takeOverConsole(), 1000)
 function bestmove(color) {
+  startWait()
   clearConsole()
   var fen = document.getElementById('fen').innerText
   stockfish.postMessage(`position fen ${fen} ${color}`)
@@ -243,6 +244,17 @@ function addConsole() {
 function onmessage(event) {
   if (!event.data.startsWith('bestmove')) return
   console.log(event.data)
+  endWait()
+}
+function startWait() {
+  document.body.style.cursor = 'progress'
+  var cs = document.querySelector('#console')
+  cs.style.backgroundColor = 'grey'
+}
+function endWait() {
+  document.body.style.cursor = 'default'
+  var cs = document.querySelector('#console')
+  cs.style.backgroundColor = 'white'
 }
 function clearConsole() {
   var cs = document.querySelector('#console')
@@ -300,4 +312,11 @@ function removeAllChildren(from, child = from?.lastElementChild) {
 function setCharAt(str, index, chr) {
   if(index > str.length-1) return str
   return str.substring(0,index) + chr + str.substring(index+1)
+}
+
+function guid(base = [1e7]+-1e3+-4e3+-8e3+-1e11) {
+  return base
+    .replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4)
+	  .toString(16))
 }
