@@ -1,5 +1,10 @@
 const startPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
-const state = {select: 'highlight1', moves: []}
+const state = {
+  select: 'highlight1', 
+  moves: [], 
+  color: 'w',
+  play: 'play1'
+}
 
 function drawBoard(position = startPosition) {
   state.area = create('div')
@@ -8,37 +13,15 @@ function drawBoard(position = startPosition) {
   addFenInput(position)
   addBoard(position)
   addSparePieces()
-  addMoveButtons()
   addConsole()
   clearConsole()
-}
-
-function addMoveButtons() {
-  var div = append(state.area, create('div', {class: 'buttons'}))
-  const options = {style: 'width: 50px;height: 46px'}
-  var buttonWhite = append(div, create('button', {innerHTML: '<b>WH</b>', ...options}))
-  var buttonBlack = append(div, create('button', {innerHTML: '<b>BL</b>', ...options}))
-  append(div, create('br'))
-  var buttonClear = append(div, create('button', {innerText: 'X', ...options}))
-  var buttonStart = append(div, create('button', {innerText: 'S', ...options}))
-  buttonWhite.addEventListener('click', () => bestmove('w'))
-  buttonBlack.addEventListener('click', () => bestmove('b'))
-  buttonClear.addEventListener('click', () => {
-    document.getElementById('fen').innerText = '8/8/8/8/8/8/8/8'
-	fenChanged()
-  })
-  buttonStart.addEventListener('click', () => {
-    document.getElementById('fen').innerText = startPosition
-	fenChanged()
-  })
 }
 
 function clearAll() {
   document.querySelectorAll('.board').forEach(el => el.remove())
   document.querySelectorAll('.spare').forEach(el => el.remove())
-  document.querySelector('.buttons')?.remove()
+  document.querySelectorAll('.fen').forEach(el => el.remove())
   document.querySelector('#console')?.remove()
-  document.querySelector('#fen')?.remove()
 }
 
 function addBoard(position) {
@@ -197,12 +180,43 @@ function movePieceInFen(piece, fromSquare, toSquare) {
   if (fromSquare) updateFen(fromSquare, '  ')
   updateFen(toSquare, piece)
 }
+function switchSide() {
+  state.color = {w: 'b', b: 'w'}[state.color]
+  toggle = document.getElementById('toggle')
+  fen = document.getElementById('fen')
+  setColor(fen, {w: 'white', b: 'black'}[state.color])
+  toggle.innerHTML = {b: '&#9818;', w: '&#9812;'}[state.color]
+}
 function addFenInput(position) {
-  append(state.area, create('div', withContentEditable({
+  var div = append(state.area, create('div', {class: 'fen'}))
+  var fen = append(div, create('div', withContentEditable({
     style: 'font-family: monospace;font-size: 20px;width: 480px',
     innerText: position, 
     id: 'fen'
   })))
+  var options = {
+    innerHTML: '&#9812;',
+    style: 'font-size: 25px;',
+	id: 'toggle'
+  }
+  append(div, create('button', options)).addEventListener('click', () => switchSide())
+  append(div, create('button', {innerHTML: '&#10006;', style: 'font-size: 25px;'}))
+    .addEventListener('click', () => {
+      document.getElementById('fen').innerText = '8/8/8/8/8/8/8/8'
+	  fenChanged()
+    })
+  append(div, create('button', {innerHTML: '&#128257;', style: 'font-size: 25px;'}))
+    .addEventListener('click', () => {
+      document.getElementById('fen').innerText = startPosition
+	  fenChanged()
+    })
+  const playOptions = {style: 'font-size: 25px;', id: state.play}
+  append(div, create('button', {innerHTML: '▶️', ...playOptions}))
+    .addEventListener('click', () => bestmove(state.color))
+}
+function setColor(elm, bc) {
+  elm.style.backgroundColor = bc
+  elm.style.color = bc == 'white' ? 'black' : 'white'
 }
 function withContentEditable(el) {
   return {...el, contenteditable: true, onblur: 'fenChanged(event)' }
@@ -266,16 +280,15 @@ function onmessage(event) {
   state.piece = fromSquare.querySelector('img')
   state.square = fromSquare
   moveTo(toSquare)
+  switchSide()
 }
 function startWait() {
   document.body.style.cursor = 'progress'
-  var cs = document.querySelector('#console')
-  cs.style.backgroundColor = 'grey'
+  document.getElementById(state.play).disabled = true
 }
 function endWait() {
   document.body.style.cursor = 'default'
-  var cs = document.querySelector('#console')
-  cs.style.backgroundColor = 'white'
+  document.getElementById(state.play).disabled = false
 }
 function clearConsole() {
   var cs = document.querySelector('#console')
@@ -314,9 +327,9 @@ function create(tag, attributes = {}) {
     .forEach(key => {
       if (key == 'innerText')
         return element.innerText = attributes[key]
-      element.setAttribute(key, attributes[key])
 	  if (key == 'innerHTML')
-        element.innerHTML = attributes[key]
+        return element.innerHTML = attributes[key]
+      element.setAttribute(key, attributes[key])
     })
   return element
 }
